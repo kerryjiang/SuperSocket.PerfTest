@@ -20,6 +20,11 @@ namespace WebSocketClient
                 .Select(i => new WebSocketInfo())
                 .ToArray();
 
+            if (args.Length >= 3 && args[2].Equals("console", StringComparison.OrdinalIgnoreCase))
+            {
+                ListenStart();
+            }
+
             var uri = new Uri(args[1]);
 
             await AsyncParallel.ForEach(_websocketInfoArr, async w =>
@@ -30,6 +35,20 @@ namespace WebSocketClient
             foreach (var w in _websocketInfoArr)
             {
                 Console.WriteLine($"{w.SessionID}: {w.Total}");
+            }
+        }
+
+        private static async void ListenStart()
+        {
+            while (true)
+            {
+                var line = Console.ReadLine();
+
+                if ("start".Equals(line, StringComparison.OrdinalIgnoreCase))
+                {
+                    await _websocketInfoArr[0].SendAsync("StartPush");
+                    break;
+                }
             }
         }
 
