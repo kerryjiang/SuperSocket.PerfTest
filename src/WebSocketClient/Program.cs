@@ -20,12 +20,13 @@ namespace WebSocketClient
                 .Select(i => new WebSocketInfo())
                 .ToArray();
 
+            var uri = new Uri(args[1]);
+
             if (args.Length >= 3 && args[2].Equals("console", StringComparison.OrdinalIgnoreCase))
             {
-                ListenStart();
+                await ListenStart(uri);
+                return;
             }
-
-            var uri = new Uri(args[1]);
 
             await AsyncParallel.ForEach(_websocketInfoArr, async w =>
             {
@@ -38,16 +39,24 @@ namespace WebSocketClient
             }
         }
 
-        private static async void ListenStart()
+        private static async ValueTask ListenStart(Uri uri)
         {
+            Console.WriteLine("Listen 'start'");
+
             while (true)
             {
                 var line = Console.ReadLine();
 
                 if ("start".Equals(line, StringComparison.OrdinalIgnoreCase))
                 {
-                    await _websocketInfoArr[0].SendAsync("StartPush");
-                    break;
+                    var websocket = new ClientWebSocket();
+                    await websocket.ConnectAsync(uri, CancellationToken.None);
+
+                    var buffer = Encoding.UTF8.GetBytes("StartPush");
+                    await websocket.SendAsync(new ArraySegment<byte>(buffer, 0, buffer.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                    Console.WriteLine("Sent 'StartPush'");
+                    await websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
+                    return;
                 }
             }
         }
@@ -60,12 +69,13 @@ namespace WebSocketClient
             try
             {
                 await websocket.ConnectAsync(uri, CancellationToken.None);
+                websocketInfo.WebSocket = websocket;
                 Console.WriteLine("Connected");
             }
             catch
             {
                 return;
-            }            
+            }
 
             var buffer = new byte[1024 * 5];
 
