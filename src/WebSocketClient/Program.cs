@@ -11,8 +11,12 @@ namespace WebSocketClient
     {
         private static WebSocketInfo[] _websocketInfoArr;
 
+        private static ArraySegment<byte> _ackData;
+
         static async Task Main(string[] args)
         {
+            _ackData = new ArraySegment<byte>(Encoding.UTF8.GetBytes("Ack"));
+
             var connCount = int.Parse(args[0]);
 
             _websocketInfoArr = Enumerable
@@ -21,12 +25,6 @@ namespace WebSocketClient
                 .ToArray();
 
             var uri = new Uri(args[1]);
-
-            if (args.Length >= 3 && args[2].Equals("console", StringComparison.OrdinalIgnoreCase))
-            {
-                await ListenStart(uri);
-                return;
-            }
 
             await AsyncParallel.ForEach(_websocketInfoArr, async w =>
             {
@@ -38,29 +36,6 @@ namespace WebSocketClient
                 Console.WriteLine($"{w.SessionID}: {w.Total}");
             }
         }
-
-        private static async ValueTask ListenStart(Uri uri)
-        {
-            Console.WriteLine("Listen 'start'");
-
-            while (true)
-            {
-                var line = Console.ReadLine();
-
-                if ("start".Equals(line, StringComparison.OrdinalIgnoreCase))
-                {
-                    var websocket = new ClientWebSocket();
-                    await websocket.ConnectAsync(uri, CancellationToken.None);
-
-                    var buffer = Encoding.UTF8.GetBytes("StartPush");
-                    await websocket.SendAsync(new ArraySegment<byte>(buffer, 0, buffer.Length), WebSocketMessageType.Text, true, CancellationToken.None);
-                    Console.WriteLine("Sent 'StartPush'");
-                    await websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
-                    return;
-                }
-            }
-        }
-
 
         private static async ValueTask RunClient(WebSocketInfo websocketInfo, Uri uri)
         {
@@ -97,6 +72,8 @@ namespace WebSocketClient
                 if (result.CloseStatus != null || result.Count == 0)
                     break;
 
+                await websocket.SendAsync(_ackData, WebSocketMessageType.Text, true, CancellationToken.None);
+                
                 websocketInfo.Total += result.Count;
             }            
         }
